@@ -301,8 +301,10 @@
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="tooltip_text" translatable="yes">Enter latitude of point
-decimal xx.xxxxxxx or
--1d22.123</property>
+-1.22  or
+1°10'20.123N or
+ -1d22.123 or
+-1'22.123</property>
                                         <property name="width_chars">9</property>
                                         <signal name="changed" handler="ev_eLat_changed" swapped="no"/>
                                       </object>
@@ -329,8 +331,10 @@ decimal xx.xxxxxxx or
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="tooltip_text" translatable="yes">Enter longtitude of point
-decimal xx.xxxxxxx or
--1d22.123</property>
+-1.22  or
+1°10'20.123N or
+ -1d22.123 or
+-1'22.123</property>
                                         <property name="max_length">9</property>
                                         <property name="width_chars">9</property>
                                         <signal name="changed" handler="ev_eLon_changed" swapped="no"/>

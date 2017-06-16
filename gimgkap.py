@@ -6,6 +6,11 @@ from gi.repository import Gtk,Gdk,GdkPixbuf
 
 import os
 import sys
+import numpy
+import StringIO
+
+from PIL import Image, ImageDraw, ImageFont,ImageEnhance,ImageFilter
+
 
 class GImgkapGui:
 	def __init__(self):
@@ -28,6 +33,7 @@ class GImgkapGui:
 		self.btCrop = self.go("btCrop")
 		self.btColor = self.go("btColor")
 		self.btEnhance = self.go("ev_btEnhance")
+		self.button1 = self.go("button1")
 
 		self.fZoom = self.go("fZoom")
 		self.ebIMain = self.go("ebIMain")
@@ -48,8 +54,9 @@ class GImgkapGui:
 		self.window.show_all()
 
 		self.btCrop.set_visible(False)
-		self.btColor.set_visible(False)
+		#self.btColor.set_visible(False)
 		self.fZoom.set_visible(False)
+		self.button1.set_visible(False)
 
 		
 		if self.ki.chkIfImgkapIsPressent():
@@ -227,7 +234,7 @@ class Events:
 		print "str_",str_
 		s = "%s"%str_.replace(",",".")
 		
-		if s.find("d") > -1 and (s.find(".") > -1 or s.find(".") == -1):
+		if ( s.find("d") > -1 or s.find("'") > -1 ) and (s.find(".") > -1 or s.find(".") == -1):
 			return s
 		
 		try:
@@ -236,6 +243,7 @@ class Events:
 				return l
 		except:
 			return "NaN"
+
 		return "NaN"
 
 
@@ -278,6 +286,8 @@ class Events:
 
 	def ev_btColor(self,obj):
 		print "ev_btColor"
+		mip = MyImageProcess()
+		mip.startColor( self.gui )
 
 	def ev_btSaveAs(self,obj):
 		print "ev_btSaveAs"
@@ -300,8 +310,7 @@ class Events:
 	def updateCrossys(self):
 		print "updateCrossys"
 		g = self.gui
-		k = self.ki
-		
+		k = self.ki		
 
 		cc = CrossContainer(g)
 		cc.makeCross( g.layoutIMain, 2, title="LatLon", 
@@ -313,24 +322,24 @@ class Events:
 		g.lStatus.set_text("You can now correct/set corners top left and bottom right")
 
 
-	def loadFile(self,filePath):
+	def loadFile(self,filePath, makeNewCross=True):
 		ft = self.ki.chkFileType(filePath)
 		if ft == "kap":
 			self.ki.analize(filePath)
 			if self.ki.analizeStatus():
 				self.gui.lStatus.set_text("kap file ok :)")
 				tmpFilePath = self.ki.extractImage(filePath)
-				self.loadAndSetUpWidgets(tmpFilePath)
+				self.loadAndSetUpWidgets(tmpFilePath,makeNewCross=makeNewCross)
 			else:
 				self.gui.lStatus.set_text("kap file error no reference points found :(")
 		elif ft == "img":
 			self.ki.makeCleanStart()
 			self.ki.tmpImgFile = filePath
-			self.loadAndSetUpWidgets( filePath )
+			self.loadAndSetUpWidgets( filePath, makeNewCross=makeNewCross)
 
 			self.gui.lStatus.set_text("img loaded :) - now you need to set up corners")
 
-	def loadAndSetUpWidgets(self, filePath):
+	def loadAndSetUpWidgets(self, filePath, makeNewCross=True):
 		self.zoom = 2
 		z = self.zoom
 		self.pbOrg = GdkPixbuf.Pixbuf.new_from_file(filePath)
@@ -353,7 +362,8 @@ class Events:
 		g.layoutIMain.set_size_request(self.pbOrg.get_width(), self.pbOrg.get_height())
 		g.iMain.set_from_pixbuf(self.pbOrg)
 
-		self.updateCrossys()
+		if makeNewCross:
+			self.updateCrossys()
 
 
 
@@ -363,7 +373,6 @@ class MyImageProcess:
 
 
 	def find_coeffs(self,pa, pb):
-		import numpy
 		matrix = []
 		for p1, p2 in zip(pa, pb):
 			matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0]*p1[0], -p2[0]*p1[1]])
@@ -396,9 +405,10 @@ class MyImageProcess:
 			return "Need to set corners of the image to process..."
 
 		img = Image.open(gui.ki.tmpImgFile)
-		
-		width = int(round(self.cc.getWidth()/50)*50)
-		height = int(round(self.cc.getHeight()/50)*50)
+
+		frac = 25
+		width = int(round(self.cc.getWidth()/fra)*fra)
+		height = int(round(self.cc.getHeight()/fra)*fra)
 		
 		
 		tl = self.cc.getTL()
@@ -417,25 +427,95 @@ class MyImageProcess:
 
 		gui.cc.destroy()
 
-		img.save("/tmp/abc.png")		
-		gui.ev.loadFile("/tmp/abc.png")
+		img.save("/tmp/gimgkap_transform.png")		
+		gui.ev.loadFile("/tmp/gimgkap_transform.png")
 
 		return "OK"	
 
 	def startEnhance(self, gui):
-		from PIL import Image, ImageDraw, ImageFont,ImageEnhance,ImageFilter
 		img = Image.open(gui.ki.tmpImgFile)
 		enhancer = ImageEnhance.Sharpness(img)
 		factor = 7.0 / 4.0
 		img = enhancer.enhance(factor)
-		#gui.iMain.set_from_pixbuf( 
-		#	GdkPixbuf.Pixbuf.new_from_data( 
-		#		img.tostring(),
-		#		GdkPixbuf.COLORSPACE_RGB, True, 8, 200,200,200*4
-		#	 	) 
-		#	)
-		img.save("/tmp/abcEnhanced.png")
-		gui.ev.loadFile("/tmp/abcEnhanced.png")
+		img.save("/tmp/gimgkap_enhanced.png")
+		gui.ev.loadFile("/tmp/gimgkap_enhanced.png",False)
+		
+	def addScale(self, box, title, min, max):
+		box.add( Gtk.Label(title) )
+		scale = Gtk.HScale()
+		scale.set_range(min,max)
+		scale.set_value(1.0)
+		scale.connect("value-changed", self.changedCB)
+		box.add(scale)
+		return scale
+
+	def startColor(self, gui):
+		self.gui = gui
+		gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
+				Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, 
+				"Set contrast")
+
+		box = Gtk.VBox()
+		self.scaleContrast = self.addScale(box, "Contrast:", 0.0, 5.0)
+		self.scaleBrightness = self.addScale(box, "Brightness:", 0.0, 2.0)
+		self.scaleColor = self.addScale(box, "Color:", 0.0, 5.0)
+		c = gmsg.get_children()
+		c[0].add(box)
+
+		self.imgForContrast = Image.open(gui.ki.tmpImgFile)
+
+		gmsg.show_all()
+		res = gmsg.run()
+		print "res",res
+		if res == -5:
+			img = self.change_contrast( 
+				self.imgForContrast,
+				self.scaleContrast.get_value(),
+				self.scaleBrightness.get_value(),
+				self.scaleColor.get_value()
+				)
+			img.save("/tmp/gimgkapColor.png")
+			self.gui.ev.loadFile("/tmp/gimgkapColor.png",False)
+		elif res == -4:
+			self.gui.ev.loadFile(gui.ki.tmpImgFile, False)
+		gmsg.destroy()
+
+
+
+	def changedCB(self,obj):
+		print "changedColor",obj.get_value()
+		img = self.change_contrast( 
+			self.imgForContrast,
+			self.scaleContrast.get_value(),
+			self.scaleBrightness.get_value(),
+			self.scaleColor.get_value()
+			)
+		#img.save("/tmp/gimgkapContrast.png")
+		#pb = GdkPixbuf.Pixbuf.new_from_file("/tmp/gimgkapContrast.png")
+		#self.gui.iMain.set_from_file("/tmp/gimgkapContrast.png")
+		self.gui.iMain.set_from_pixbuf( self.image_to_pixbuf(img) )
+
+	def change_contrast(self,img, contrast,brightness,color):
+		image = img
+		con = ImageEnhance.Contrast(image)
+		image = con.enhance(contrast)
+		bright = ImageEnhance.Brightness(image)
+		image = bright.enhance(brightness)
+		col = ImageEnhance.Color(image)
+		image = col.enhance(color)
+		#image.show()
+		return image
+
+	def image_to_pixbuf(self, image):
+		fd = StringIO.StringIO()
+		image.save(fd, "ppm")
+		contents = fd.getvalue()
+		fd.close()
+		loader = GdkPixbuf.PixbufLoader()
+		loader.write(contents)
+		pixbuf = loader.get_pixbuf()
+		loader.close()
+		return pixbuf
 
 
 class CrossContainer:
@@ -664,6 +744,8 @@ class KapImg:
 		crossObj.x = self.makeMinMax(crossObj.x, self.pbOrgW)
 		crossObj.y = self.makeMinMax(crossObj.y, self.pbOrgH)
 
+	def llToStr(self, ll):
+		return ("%s"%ll).replace("'","d")
 
 	def saveAs(self, gui, filePath):
 		print "saveAs"
@@ -678,19 +760,19 @@ class KapImg:
 
 		w = c1.x-c0.x
 		h = c1.y-c0.y
-		lw = c1.lon-c0.lon
-		lh = c1.lat-c0.lat
-
-		sw = w/lw
-		sh = h/lh
-
-		print "w,h",w,h,"lw,lh",lw,lh,"sw,sh",sw,sh
-
+		try:
+			lw = c1.lon-c0.lon
+			lh = c1.lat-c0.lat
+			sw = w/lw
+			sh = h/lh
+			print "w,h",w,h,"lw,lh",lw,lh,"sw,sh",sw,sh
+		except:
+			a = 0
 
 		cmd = "imgkap "+\
 			"\"%s\" " % self.tmpImgFile +\
-			"\"%s\" \"%s\" \"%s;%s\" " % ( c0.lat, c0.lon, c0.x, c0.y) +\
-			"\"%s\" \"%s\" \"%s;%s\" " % ( c1.lat, c1.lon, c1.x-1, c1.y-1) +\
+			"\"%s\" \"%s\" \"%s;%s\" " % ( self.llToStr(c0.lat), self.llToStr(c0.lon), c0.x, c0.y) +\
+			"\"%s\" \"%s\" \"%s;%s\" " % ( self.llToStr(c1.lat), self.llToStr(c1.lon), c1.x-1, c1.y-1) +\
 			"\"%s\"" %filePath
 		print "	cmd\n\t------------------------------------\n\t%s\n\t------------------------------------" % cmd
 		r = self.execute(cmd)
@@ -699,7 +781,7 @@ class KapImg:
 				Gtk.MessageType.INFO, Gtk.ButtonsType.OK, 
 				"File is ready in \n'" + filePath + "'")
 		else:
-			gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODA| Gtk.DialogFlags.DESTROY_WITH_PARENTL, 
+			gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
 				Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, 
 				"Something weant wrong :(")
 		gmsg.show_all()
