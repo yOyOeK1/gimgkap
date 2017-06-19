@@ -8,6 +8,7 @@ import os
 import sys
 import numpy
 import StringIO
+import subprocess
 
 from PIL import Image, ImageDraw, ImageFont,ImageEnhance,ImageFilter
 
@@ -20,6 +21,7 @@ class GImgkapGui:
 		self.builder.add_from_file("gui.glade")
 		self.ki = KapImg()
 		self.ev = Events(self)
+		self.bf = BackForward(self)
 		ev = self.ev
 		self.builder.connect_signals(ev)
 
@@ -31,9 +33,13 @@ class GImgkapGui:
 		self.lStatus = self.go("lStatus")
 		self.btPerspective = self.go("btPerspective")
 		self.btCrop = self.go("btCrop")
+		self.btRatio = self.go("btRatio")
 		self.btColor = self.go("btColor")
-		self.btEnhance = self.go("ev_btEnhance")
+		self.btEnhance = self.go("btEnhance")
+		self.btConfirm = self.go("btConfirm")
+		self.btCancel = self.go("btCancel")
 		self.button1 = self.go("button1")
+		self.btSaveAs = self.go("btSaveAs")
 
 		self.fZoom = self.go("fZoom")
 		self.ebIMain = self.go("ebIMain")
@@ -56,8 +62,11 @@ class GImgkapGui:
 		self.btCrop.set_visible(False)
 		#self.btColor.set_visible(False)
 		self.fZoom.set_visible(False)
-		self.button1.set_visible(False)
 
+		self.btConfirm.set_visible(False)
+		self.btCancel.set_visible(False)
+		
+		self.button1.set_visible(False)
 		
 		if self.ki.chkIfImgkapIsPressent():
 			self.lStatus.set_text("<-- select file *.png | *.jpg | *.kap")
@@ -169,6 +178,20 @@ class Events:
 		Gtk.main_quit()
 
 
+	def setToolButtonVisible(self, bVisible):
+		g = self.gui
+		g.btSaveAs.set_visible(bVisible)
+		g.btPerspective.set_visible(bVisible)
+		g.btRatio.set_visible(bVisible)
+		g.btEnhance.set_visible(bVisible)
+		g.btColor.set_visible(bVisible)
+
+	def setConfirmCancelVisible(self, bVisible):
+		g = self.gui
+		g.btConfirm.set_visible(bVisible)
+		g.btCancel.set_visible(bVisible)
+
+
 	def ev_win_press(self,obj,ev):
 		print "ev_win_press"
 		print "key %s" %ev.keyval
@@ -203,6 +226,9 @@ class Events:
 			else:
 				self.gui.lStatus.set_text(res)
 		else:
+			self.setToolButtonVisible(False)
+			self.setConfirmCancelVisible(True)
+			self.gui.bf.storeStatus()
 			self.gui.glabolActionName = "perspective"
 			mip = MyImageProcess()
 			mip.startPerspective( self.gui )
@@ -212,6 +238,42 @@ class Events:
 		print "ev_btEnhance"
 		mip = MyImageProcess()
 		mip.startEnhance( self.gui )
+
+	def ev_btRatio(self,obj):
+		print "ev_btRatio"
+		if self.gui.glabolActionName == "ratio":
+			res = self.gui.mip.endRatio(self.gui)
+			if res == "OK":
+				self.gui.glabolActionName = "ratioDone"
+			else:
+				self.gui.lStatus.set_text(res)
+		else:
+			self.setToolButtonVisible(False)
+			self.setConfirmCancelVisible(True)
+			self.gui.bf.storeStatus()
+			self.gui.glabolActionName = "ratio"
+			mip = MyImageProcess()
+			mip.startRatio( self.gui )
+			self.gui.mip = mip
+
+
+
+	def ev_btConfirm(self,obj):
+		print "ev_btConfirm"
+		if self.gui.glabolActionName == "ratio":
+			self.ev_btRatio(None)
+		elif self.gui.glabolActionName == "perspective":
+			self.ev_btPerspective(None)
+
+		self.setToolButtonVisible(True)
+		self.setConfirmCancelVisible(False)
+
+	def ev_btCancel(self,obj):
+		print "ev_btCancel"
+		self.gui.glabolActionName = ""
+		self.gui.bf.resumeLast()
+		self.setToolButtonVisible(True)
+		self.setConfirmCancelVisible(False)
 
 		
 	def ev_btOk(self,obj):
@@ -329,6 +391,7 @@ class Events:
 			if self.ki.analizeStatus():
 				self.gui.lStatus.set_text("kap file ok :)")
 				tmpFilePath = self.ki.extractImage(filePath)
+				self.ki.tmpImgFile = tmpFilePath
 				self.loadAndSetUpWidgets(tmpFilePath,makeNewCross=makeNewCross)
 			else:
 				self.gui.lStatus.set_text("kap file error no reference points found :(")
@@ -366,6 +429,39 @@ class Events:
 			self.updateCrossys()
 
 
+class Step:
+	def __init__(self, title, file,cc):
+		self.title = title
+		self.file = file
+		self.cc = cc
+
+class BackForward:
+	def __init__(self, gui):
+		self.gui = gui
+		self.steps = []
+
+	def append(self, title, file,cc):
+		s = Step(title, file, cc)
+		self.steps.append(s)
+
+	def storeStatus(self):
+		title, cc = self.gui.cc.getCrossData()
+		self.append(
+			title,
+			gui.ki.tmpImgFile,
+			cc
+			)
+
+	def resumeLast(self):
+		l = self.steps[len(self.steps)-1]
+		self.gui.cc.destroy()
+		self.gui.ev.loadFile(l.file,makeNewCross=False)
+		self.gui.cc = CrossContainer(gui)		
+		self.gui.cc.makeCross(self.gui.layoutIMain, len(l.cc), title=l.title, points=l.cc)
+	
+
+
+
 
 class MyImageProcess:
 	def __init__(self):
@@ -390,7 +486,7 @@ class MyImageProcess:
 			gui.cc.destroy()
 
 		cc = CrossContainer(gui)
-		cc.makeCross( gui.layoutIMain, 4, title="perspective")
+		cc.makeCross( gui.layoutIMain, 4, title="perspective", points=[(50,50),(100,50),(50,100),(100,100)] )
 		gui.cc = cc
 		self.cc = cc
 		gui.lStatus.set_text("Perspective correction, set corners of image to correct...")
@@ -406,7 +502,7 @@ class MyImageProcess:
 
 		img = Image.open(gui.ki.tmpImgFile)
 
-		frac = 25
+		fra = 25
 		width = int(round(self.cc.getWidth()/fra)*fra)
 		height = int(round(self.cc.getHeight()/fra)*fra)
 		
@@ -430,7 +526,44 @@ class MyImageProcess:
 		img.save("/tmp/gimgkap_transform.png")		
 		gui.ev.loadFile("/tmp/gimgkap_transform.png")
 
-		return "OK"	
+		return "OK"
+
+	# RATIO
+	def startRatio(self, gui):
+		if gui.cc <> None:
+			gui.cc.destroy()
+
+		cc = CrossContainer(gui)
+		cc.makeCross( gui.layoutIMain, 2, title="ratio")
+		gui.cc = cc
+		self.cc = cc
+		gui.lStatus.set_text("Ratio image correction, set corners of one squere on the map grid...")
+
+	def endRatio(self, gui):
+		from PIL import Image
+
+		print "processRatio"
+		res = self.cc.chkData(True, False)
+		print res
+		if res == False:
+			return "Need to set corners of map one squere on the map grid..."
+
+		img = Image.open(gui.ki.tmpImgFile)
+
+		width = self.cc.getWidth()
+		height = self.cc.getHeight()		
+		newH = (float(width)/float(height))*float(img.size[1])
+		
+		print "w,h",width,height,"newH",newH
+		img = img.resize( (int(img.size[0]),int(newH)),Image.BICUBIC )
+		
+		gui.cc.destroy()
+
+		img.save("/tmp/gimgkap_ratio.png")		
+		gui.ev.loadFile("/tmp/gimgkap_ratio.png")
+
+		return "OK"
+	# RATIO	
 
 	def startEnhance(self, gui):
 		img = Image.open(gui.ki.tmpImgFile)
@@ -474,6 +607,7 @@ class MyImageProcess:
 				self.scaleBrightness.get_value(),
 				self.scaleColor.get_value()
 				)
+
 			img.save("/tmp/gimgkapColor.png")
 			self.gui.ev.loadFile("/tmp/gimgkapColor.png",False)
 		elif res == -4:
@@ -522,6 +656,7 @@ class CrossContainer:
 	def __init__(self,gui):
 		self.gui = gui
 		self.cross = []
+		self.title = ""
 
 	def destroy(self):
 		for c in self.cross:
@@ -529,6 +664,7 @@ class CrossContainer:
 		self.gui.cc = None
 
 	def makeCross(self, layout, count, title="", points=[]):
+		self.title = title
 		for i in range(0, count):
 			try:
 				v = points[i]
@@ -537,6 +673,14 @@ class CrossContainer:
 			c = Cross(gui=self.gui, no=i, title=title, values=v)
 			c.addWidget( layout )
 			self.cross.append(c)
+
+	def getCrossData(self):
+		tr = []
+		for c in self.cross:
+			tr.append([
+				c.x, c.y, c.lat, c.lon
+				])
+		return [self.title, tr]
 
 	def set_visible(self, status):
 		for c in self.cross:
@@ -558,12 +702,17 @@ class CrossContainer:
 		return self.getXY(3)
 
 	def getWidth(self):
+		if len(self.cross) == 2:
+			return self.cross[1].x-self.cross[0].x 
 		tl = self.getTL()
 		br = self.getBR()
 
 		return br[0]-tl[0] 
 
 	def getHeight(self):
+		if len(self.cross) == 2:
+			return self.cross[1].y-self.cross[0].y
+
 		tl = self.getTL()
 		br = self.getBR()
 
@@ -630,8 +779,8 @@ class Cross:
 		print "addWidget x,y",self.x,self.y
 		self.layout = layout
 		layout.add( self.eb )
-		x,y = self.getXY()
-		self.moveTo( x, y, False)
+		#x,y = self.getXY()
+		self.moveTo( self.x, self.y, False)
 		#xoff,yoff = self.getXY()
 		#self.moveTo( xoff, yoff )
 
@@ -663,6 +812,8 @@ class Cross:
 				self.gui.makeDetailWindow(crosObj=self, values="xy")
 			elif self.title == "LatLon":
 				self.gui.makeDetailWindow(crosObj=self, values="xyl")
+			elif self.title == "ratio":
+				self.gui.makeDetailWindow(crosObj=self, values="xy")
 
 	def moveCrossBy(self, xm, ym):
 		print "moveCrossBy"
@@ -692,6 +843,12 @@ class Cross:
 				self.gui.lStatus.set_text("set top left or right corner")
 			if self.no == 1:
 				self.gui.lStatus.set_text("set bottom left or right corner")
+		elif self.title == "ratio":
+			self.gui.makeDetailWindow(crosObj=self, values="xy")
+			if self.no == 0:
+				self.gui.lStatus.set_text("set top left corner of squere on map grid")
+			if self.no == 1:
+				self.gui.lStatus.set_text("set bottom right corner of squere on map grid")
 
 		self.updateInProgress = False
 
@@ -713,6 +870,15 @@ class Cross:
 class KapImg:
 	def __init__(self):
 		self.makeCleanStart()
+
+		"""
+		cmd = 'imgkap "/tmp/gimgkap_transform3.png" "9d34.90" "-79d40" "62;82" "9d34.80" "-79d39.80" "343;166" "/tmp/423.kap"'
+		r = self.executeGetRes(cmd)
+		print "---------------\n",r,"\n---------------"
+		r,msg = self.chkPossibleErrors(r,cmd)
+		print "r   ",r
+		print "msg ",msg
+		"""
 
 	def makeCleanStart(self):
 		self.refs = []
@@ -775,7 +941,10 @@ class KapImg:
 			"\"%s\" \"%s\" \"%s;%s\" " % ( self.llToStr(c1.lat), self.llToStr(c1.lon), c1.x-1, c1.y-1) +\
 			"\"%s\"" %filePath
 		print "	cmd\n\t------------------------------------\n\t%s\n\t------------------------------------" % cmd
-		r = self.execute(cmd)
+		r = self.executeGetRes(cmd)
+		r,msg = self.chkPossibleErrors(r,cmd)
+
+
 		if r == 0:
 			gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
 				Gtk.MessageType.INFO, Gtk.ButtonsType.OK, 
@@ -783,12 +952,52 @@ class KapImg:
 		else:
 			gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
 				Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, 
-				"Something weant wrong :(")
+				"Something weant wrong :( \n%s"%msg)
 		gmsg.show_all()
 		gmsg.run()
 		gmsg.destroy()
 		print "DONE"
 
+	def getValueFromError(self, res,val):
+		res = res.decode('utf-8')
+		r = res.replace(" ","")
+		t = r.split("=")
+		for i,l in enumerate(t):
+			if l.find(val) > -1:
+				print "next to ",t[i]," is it -> [",t[i+1],"]"
+				v = t[i+1].replace("\n", " ").replace("\t"," ")
+				vt = v.split(" ")
+				return float(vt[0])
+
+		return None
+
+	def chkPossibleErrors(self,res, cmd):
+		print "chkPossibleErrors [%s]--------------------------"%res
+		r = -1
+		msg = ""
+		if res == "":
+			return [0,""]
+
+		if res.find("ERROR - size of image is not correct") > -1:
+			print "found size problem, \ntry to solve it..."
+
+			iw = 425
+			ih = 223
+
+			lonS = self.getValueFromError(res,"LON-degree")
+			latS = self.getValueFromError(res,"LAT-degree")
+			if lonS == None or latS == None:
+				return [-1, "image proportion error :/ can't extract values :( \n org error\n%s"%res]
+			print "prosside... found data in error log lat,lon scale",latS,lonS
+
+			
+			ih = ((lonS*ih)/latS)
+			print "new ih",ih
+
+
+
+
+		return [r,msg]
 
 
 	def extractImage(self, filePath):
@@ -885,13 +1094,21 @@ class KapImg:
 
 
 	def cmd(self, cmd):
-		import subprocess
 		return subprocess.call("type " + cmd, shell=True, 
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
 
 	def execute(self, cmd):
 		r = os.system(cmd)
 		return r
+
+	def executeGetRes(self, cmd):
+		p = subprocess.Popen(cmd, shell=True, 
+			stdin=subprocess.PIPE,
+			stdout=subprocess.PIPE,
+			stderr=subprocess.STDOUT, 
+			close_fds=True)
+		return p.stdout.read()
+
 
 if __name__ == "__main__":
 	gui = GImgkapGui()
