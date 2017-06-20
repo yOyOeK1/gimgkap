@@ -28,7 +28,7 @@ class GImgkapGui:
 		
 		self.window = self.go("window1")
 		#self.window.maximize()
-		self.window.resize(900,700)
+		self.window.resize(700,600)
 
 		self.lStatus = self.go("lStatus")
 		self.btPerspective = self.go("btPerspective")
@@ -42,6 +42,7 @@ class GImgkapGui:
 		self.btSaveAs = self.go("btSaveAs")
 
 		self.fZoom = self.go("fZoom")
+		self.scrolledwindow1 = self.go("scrolledwindow1")
 		self.ebIMain = self.go("ebIMain")
 		self.iMain = self.go("iMain")
 		self.layoutZoom = self.go("layoutZoom")
@@ -337,7 +338,8 @@ class Events:
 	def ev_bt(self,obj):
 		#self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/5-02.kap")
 		#self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/8-54.kap")
-		self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/IMG_20170612_071755712_mini.jpg")
+		#qself.loadFile("/home/yoyo/Apps/gimgkap/testFiles/IMG_20170612_071755712_mini.jpg")
+		self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/IMG_20170612_071755712_done_mini.jpg")
 
 	def ev_fcbt(self,obj):
 		print "ev_fcbt"
@@ -486,7 +488,7 @@ class MyImageProcess:
 			gui.cc.destroy()
 
 		cc = CrossContainer(gui)
-		cc.makeCross( gui.layoutIMain, 4, title="perspective", points=[(50,50),(100,50),(50,100),(100,100)] )
+		cc.makeCross( gui.layoutIMain, 4, title="perspective", points=[(50,50),(100,50),(100,100),(50,100)] )
 		gui.cc = cc
 		self.cc = cc
 		gui.lStatus.set_text("Perspective correction, set corners of image to correct...")
@@ -860,10 +862,32 @@ class Cross:
 		print "ev_move"
 		pw = obj.get_parent_window().get_pointer()
 		self.moveTo( pw[1], pw[2])
+		self.adjustScroll(pw[1],pw[2])
 		
 			
 
+	def adjustScroll(self, px,py):
+		print "adjustScroll"
+		lima = self.gui.layoutIMain.get_parent().get_allocation()
+		w = lima.width
+		h = lima.height
 
+		ha = self.gui.scrolledwindow1.get_hadjustment()
+		va = self.gui.scrolledwindow1.get_vadjustment()
+		sx = ha.get_value()
+		sy = va.get_value()
+
+		if px < sx:
+			ha.set_value(px)
+		if px > (sx+w):
+			ha.set_value( px-w )
+
+		if py < sy:
+			va.set_value(py)
+		if py > (sy+h):
+			va.set_value( py-h )
+
+		#print "w,h",w,h,"sx,sy",sx,sy,"px,py",px,py
 
 
 
