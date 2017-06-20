@@ -28,12 +28,13 @@ class GImgkapGui:
 		
 		self.window = self.go("window1")
 		#self.window.maximize()
-		self.window.resize(700,600)
+		self.window.resize(1000,600)
 
 		self.lStatus = self.go("lStatus")
 		self.btPerspective = self.go("btPerspective")
 		self.btCrop = self.go("btCrop")
 		self.btRatio = self.go("btRatio")
+		self.btDPI = self.go("btDPI")
 		self.btColor = self.go("btColor")
 		self.btEnhance = self.go("btEnhance")
 		self.btConfirm = self.go("btConfirm")
@@ -182,6 +183,7 @@ class Events:
 	def setToolButtonVisible(self, bVisible):
 		g = self.gui
 		g.btSaveAs.set_visible(bVisible)
+		g.btDPI.set_visible(bVisible)
 		g.btPerspective.set_visible(bVisible)
 		g.btRatio.set_visible(bVisible)
 		g.btEnhance.set_visible(bVisible)
@@ -192,6 +194,10 @@ class Events:
 		g.btConfirm.set_visible(bVisible)
 		g.btCancel.set_visible(bVisible)
 
+
+	def ev_win_scroll(self,obj,ev):
+		#print "ev_win_scroll"
+		a = 0
 
 	def ev_win_press(self,obj,ev):
 		print "ev_win_press"
@@ -240,6 +246,23 @@ class Events:
 		mip = MyImageProcess()
 		mip.startEnhance( self.gui )
 
+	def ev_btDPI(self,obj):
+		print "ev_btDPI"
+		if self.gui.glabolActionName == "dpi":
+			res = self.gui.mip.endDPI(self.gui)
+			if res == "OK":
+				self.gui.glabolActionName = "dpiDone"
+			else:
+				self.gui.lStatus.set_text(res)
+		else:
+			self.setToolButtonVisible(False)
+			self.setConfirmCancelVisible(True)
+			self.gui.bf.storeStatus()
+			self.gui.glabolActionName = "dpi"
+			mip = MyImageProcess()
+			mip.startDPI( self.gui )
+			self.gui.mip = mip
+
 	def ev_btRatio(self,obj):
 		print "ev_btRatio"
 		if self.gui.glabolActionName == "ratio":
@@ -265,6 +288,8 @@ class Events:
 			self.ev_btRatio(None)
 		elif self.gui.glabolActionName == "perspective":
 			self.ev_btPerspective(None)
+		elif self.gui.glabolActionName == "dpi":
+			self.ev_btDPI(None)
 
 		self.setToolButtonVisible(True)
 		self.setConfirmCancelVisible(False)
@@ -483,6 +508,113 @@ class MyImageProcess:
 		return numpy.array(res).reshape(8)
 
 
+	# DPI
+	def startDPI(self, gui):
+		if gui.cc <> None:
+			gui.cc.destroy()
+
+		self.dpiRes = 0
+		cc = CrossContainer(gui)
+		cc.makeCross( gui.layoutIMain, 1, title="dpi", points=[(50,50)] )
+		gui.cc = cc
+		self.cc = cc
+		gui.lStatus.set_text("DPI correction, set cross on depth on image")
+
+		self.id = Image.open(gui.ki.tmpImgFile)
+		print "pil img helper loaded ..."
+		print self.id.size
+
+	def gd ( self, r,g,b ):
+		m = 100
+		if r < m and g < m and b < m:
+			return True
+		return False
+
+	def grayPix(self, x ,y):
+		if x < 0 or y < 0:
+			return False
+		p = self.id.getpixel((x,y))
+		if ("%s"%type(p)) == "<type 'tuple'>":
+			return self.gd(p[0],p[1],p[2])
+		else:
+			return self.gd(p,p,p)
+		
+
+	def findH(self,level, x,y,up=True,down=True):
+		ym = 100
+		tr = 0
+
+		if up:
+			for i in range(1,ym,1):
+				if self.grayPix(x,y-i):
+					tr+=1
+				else:
+					if level > 0:
+						r = self.findH(level-1, x+1, y-(i-1), down=False)
+						l = self.findH(level-1, x-1, y-(i-1), down=False)
+						if r >= l:
+							tr+=r
+						else:
+							tr+=l
+					break
+
+		if down:
+			for i in range(1,ym,1):
+				if self.grayPix(x,y+i):
+					tr+=1
+				else:
+					if level > 0:
+						r = self.findH(level-1, x+1, y+(i-1), up=False)
+						l = self.findH(level-1, x-1, y+(i-1), up=False)
+						if r >= l:
+							tr+= r
+						else:
+							tr+= l
+
+					break
+
+
+		return tr
+
+	def detectDPI(self,gui):
+		c = self.cc.cross[0]
+		print "detectDPI cross on x,y",c.x,c.y
+		res = 0
+		if self.grayPix( c.x, c.y ):
+			res = self.findH( 10, c.x, c.y )
+		if res > 0:
+			gui.lStatus.set_text(
+				"found object height %s px"%res
+				)
+			self.dpiRes = res
+		else:
+			gui.lStatus.set_text("no object found ...")
+
+
+
+	def endDPI(self, gui):
+		print "processDPI"
+		if self.dpiRes == 0:
+			return "OK"
+
+		charHeight = 12
+		scale = float(charHeight) / float(self.dpiRes)
+
+		imgSize = self.id.size
+		w = int( float(imgSize[0])*scale)
+		h = int( float(imgSize[1])*scale)
+		print "org img size",imgSize[0],imgSize[1],"res is at",self.dpiRes, \
+			"new size",w,h
+		img = self.id.resize( (int(w),int(h)),Image.BICUBIC)
+
+		gui.cc.destroy()
+
+		img.save("/tmp/gimgkap_DPI.png")		
+		gui.ev.loadFile("/tmp/gimgkap_DPI.png")
+
+		return "OK"
+	# DPI
+	# PERSPECTIVE
 	def startPerspective(self, gui):
 		if gui.cc <> None:
 			gui.cc.destroy()
@@ -494,8 +626,6 @@ class MyImageProcess:
 		gui.lStatus.set_text("Perspective correction, set corners of image to correct...")
 
 	def endPerspective(self, gui):
-		from PIL import Image
-
 		print "processPerspective"
 		res = self.cc.chkData(True, False)
 		print res
@@ -529,21 +659,19 @@ class MyImageProcess:
 		gui.ev.loadFile("/tmp/gimgkap_transform.png")
 
 		return "OK"
-
+	# PERSPECTIVE
 	# RATIO
 	def startRatio(self, gui):
 		if gui.cc <> None:
 			gui.cc.destroy()
 
 		cc = CrossContainer(gui)
-		cc.makeCross( gui.layoutIMain, 2, title="ratio")
+		cc.makeCross( gui.layoutIMain, 2, title="ratio", points=[(50,50),(100,100)])
 		gui.cc = cc
 		self.cc = cc
 		gui.lStatus.set_text("Ratio image correction, set corners of one squere on the map grid...")
 
 	def endRatio(self, gui):
-		from PIL import Image
-
 		print "processRatio"
 		res = self.cc.chkData(True, False)
 		print res
@@ -816,6 +944,12 @@ class Cross:
 				self.gui.makeDetailWindow(crosObj=self, values="xyl")
 			elif self.title == "ratio":
 				self.gui.makeDetailWindow(crosObj=self, values="xy")
+			elif self.title == "dpi":
+				self.gui.makeDetailWindow(crosObj=self, values="xy")
+				self.gui.mip.detectDPI( self.gui )
+
+
+			
 
 	def moveCrossBy(self, xm, ym):
 		print "moveCrossBy"
@@ -851,6 +985,11 @@ class Cross:
 				self.gui.lStatus.set_text("set top left corner of squere on map grid")
 			if self.no == 1:
 				self.gui.lStatus.set_text("set bottom right corner of squere on map grid")
+		elif self.title == "dpi":
+			self.gui.makeDetailWindow(crosObj=self, values="xy")
+			if self.no == 0:
+				self.gui.lStatus.set_text("set cross on depth value")
+			
 
 		self.updateInProgress = False
 
@@ -863,19 +1002,18 @@ class Cross:
 		pw = obj.get_parent_window().get_pointer()
 		self.moveTo( pw[1], pw[2])
 		self.adjustScroll(pw[1],pw[2])
-		
-			
+					
 
 	def adjustScroll(self, px,py):
 		print "adjustScroll"
-		lima = self.gui.layoutIMain.get_parent().get_allocation()
-		w = lima.width
-		h = lima.height
-
+		limpa = self.gui.layoutIMain.get_parent().get_allocation()
+		w = limpa.width
+		h = limpa.height
 		ha = self.gui.scrolledwindow1.get_hadjustment()
 		va = self.gui.scrolledwindow1.get_vadjustment()
 		sx = ha.get_value()
 		sy = va.get_value()
+		#print "w,h",w,h,"sx,sy",sx,sy,"px,py",px,py
 
 		if px < sx:
 			ha.set_value(px)
@@ -887,7 +1025,7 @@ class Cross:
 		if py > (sy+h):
 			va.set_value( py-h )
 
-		#print "w,h",w,h,"sx,sy",sx,sy,"px,py",px,py
+		
 
 
 

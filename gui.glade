@@ -20,6 +20,12 @@
     <property name="tooltip_text" translatable="yes">correct ratio hight to width off grid</property>
     <property name="pixbuf">ratio.png</property>
   </object>
+  <object class="GtkImage" id="image11">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="tooltip_text" translatable="yes">correct dpi</property>
+    <property name="pixbuf">dpi.png</property>
+  </object>
   <object class="GtkImage" id="image2">
     <property name="can_focus">False</property>
     <property name="tooltip_text" translatable="yes">crop image</property>
@@ -62,6 +68,7 @@
     <property name="icon_name">zoom-best-fit</property>
     <signal name="destroy" handler="ev_window_destroy" swapped="no"/>
     <signal name="key-press-event" handler="ev_win_press" swapped="no"/>
+    <signal name="scroll-event" handler="ev_win_scroll" swapped="no"/>
     <child>
       <object class="GtkBox" id="box1">
         <property name="visible">True</property>
@@ -131,6 +138,20 @@
                   </packing>
                 </child>
                 <child>
+                  <object class="GtkButton" id="btDPI">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="image">image11</property>
+                    <signal name="clicked" handler="ev_btDPI" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+                <child>
                   <object class="GtkButton" id="btEnhance">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -141,11 +162,8 @@
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">True</property>
-                    <property name="position">2</property>
+                    <property name="position">3</property>
                   </packing>
-                </child>
-                <child>
-                  <placeholder/>
                 </child>
                 <child>
                   <object class="GtkButton" id="btCrop">
@@ -215,7 +233,7 @@
             </child>
             <child>
               <object class="GtkButton" id="button1">
-                <property name="label" translatable="yes">button</property>
+                <property name="label" translatable="yes">b</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -385,7 +403,6 @@
 1°10'20.123N or
  -1d22.123 or
 -1'22.123</property>
-                                        <property name="max_length">9</property>
                                         <property name="width_chars">9</property>
                                         <signal name="changed" handler="ev_eLon_changed" swapped="no"/>
                                       </object>
