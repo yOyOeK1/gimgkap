@@ -24,4 +24,4 @@ click save as, kap is ready
 #To use enhancment:
 perspective correction:
 open image or kap, click on correct perspective (it can be allso use as crop) drag and drop 4 cross as it is shown on top bar
-then click one more time correct perspective button. Making kap file as describe on top "Using" 
+then click Applay. Making kap file as describe on top "Using" 

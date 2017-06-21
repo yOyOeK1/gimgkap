@@ -124,12 +124,12 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkButton" id="btRatio">
+                  <object class="GtkButton" id="btDPI">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
-                    <property name="image">image10</property>
-                    <signal name="clicked" handler="ev_btRatio" swapped="no"/>
+                    <property name="image">image11</property>
+                    <signal name="clicked" handler="ev_btDPI" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -138,12 +138,12 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkButton" id="btDPI">
+                  <object class="GtkButton" id="btRatio">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
-                    <property name="image">image11</property>
-                    <signal name="clicked" handler="ev_btDPI" swapped="no"/>
+                    <property name="image">image10</property>
+                    <signal name="clicked" handler="ev_btRatio" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>

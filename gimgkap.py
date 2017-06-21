@@ -235,6 +235,7 @@ class Events:
 		else:
 			self.setToolButtonVisible(False)
 			self.setConfirmCancelVisible(True)
+			self.gui.fZoom.set_visible(False)
 			self.gui.bf.storeStatus()
 			self.gui.glabolActionName = "perspective"
 			mip = MyImageProcess()
@@ -243,6 +244,7 @@ class Events:
 
 	def ev_btEnhance(self,obj):
 		print "ev_btEnhance"
+		self.gui.fZoom.set_visible(False)
 		mip = MyImageProcess()
 		mip.startEnhance( self.gui )
 
@@ -259,6 +261,7 @@ class Events:
 			self.setConfirmCancelVisible(True)
 			self.gui.bf.storeStatus()
 			self.gui.glabolActionName = "dpi"
+			self.gui.fZoom.set_visible(False)
 			mip = MyImageProcess()
 			mip.startDPI( self.gui )
 			self.gui.mip = mip
@@ -276,6 +279,7 @@ class Events:
 			self.setConfirmCancelVisible(True)
 			self.gui.bf.storeStatus()
 			self.gui.glabolActionName = "ratio"
+			self.gui.fZoom.set_visible(False)
 			mip = MyImageProcess()
 			mip.startRatio( self.gui )
 			self.gui.mip = mip
@@ -291,12 +295,14 @@ class Events:
 		elif self.gui.glabolActionName == "dpi":
 			self.ev_btDPI(None)
 
+		self.gui.fZoom.set_visible(False)
 		self.setToolButtonVisible(True)
 		self.setConfirmCancelVisible(False)
 
 	def ev_btCancel(self,obj):
 		print "ev_btCancel"
 		self.gui.glabolActionName = ""
+		self.gui.fZoom.set_visible(False)
 		self.gui.bf.resumeLast()
 		self.setToolButtonVisible(True)
 		self.setConfirmCancelVisible(False)
@@ -368,6 +374,13 @@ class Events:
 
 	def ev_fcbt(self,obj):
 		print "ev_fcbt"
+		try:
+			self.gui.cc.destroy()
+		except:
+			print "self.gui.cc.destroy() - not found :p"
+		self.gui.bf.destroy()
+		self.setConfirmCancelVisible(False)
+		self.setToolButtonVisible(True)
 		self.loadFile(obj.get_filename())
 
 	def ev_btCrop(self,obj):
@@ -375,6 +388,7 @@ class Events:
 
 	def ev_btColor(self,obj):
 		print "ev_btColor"
+		self.gui.fZoom.set_visible(False)
 		mip = MyImageProcess()
 		mip.startColor( self.gui )
 
@@ -412,7 +426,8 @@ class Events:
 
 
 	def loadFile(self,filePath, makeNewCross=True):
-		ft = self.ki.chkFileType(filePath)
+		self.gui.fZoom.set_visible(False)
+		ft, img = self.ki.chkFileType(filePath)
 		if ft == "kap":
 			self.ki.analize(filePath)
 			if self.ki.analizeStatus():
@@ -425,14 +440,17 @@ class Events:
 		elif ft == "img":
 			self.ki.makeCleanStart()
 			self.ki.tmpImgFile = filePath
-			self.loadAndSetUpWidgets( filePath, makeNewCross=makeNewCross)
+			self.loadAndSetUpWidgets( filePath, makeNewCross=makeNewCross, pixbuf=img)
 
 			self.gui.lStatus.set_text("img loaded :) - now you need to set up corners")
 
-	def loadAndSetUpWidgets(self, filePath, makeNewCross=True):
+	def loadAndSetUpWidgets(self, filePath, makeNewCross=True, pixbuf=None):
 		self.zoom = 2
 		z = self.zoom
-		self.pbOrg = GdkPixbuf.Pixbuf.new_from_file(filePath)
+		if pixbuf == None:
+			self.pbOrg = GdkPixbuf.Pixbuf.new_from_file(filePath)
+		else:
+			self.pbOrg = pixbuf
 		self.pbOrgW = self.pbOrg.get_width()
 		self.pbOrgH = self.pbOrg.get_height()
 		self.ki.setImgMaxs(self.pbOrgW,self.pbOrgH)
@@ -465,6 +483,9 @@ class Step:
 class BackForward:
 	def __init__(self, gui):
 		self.gui = gui
+		self.steps = []
+
+	def destroy(self):
 		self.steps = []
 
 	def append(self, title, file,cc):
@@ -976,9 +997,9 @@ class Cross:
 		elif self.title == "LatLon":
 			self.gui.makeDetailWindow(crosObj=self, values="xyl")
 			if self.no == 0:
-				self.gui.lStatus.set_text("set top left or right corner")
+				self.gui.lStatus.set_text("set top left or right known lat / lon on image")
 			if self.no == 1:
-				self.gui.lStatus.set_text("set bottom left or right corner")
+				self.gui.lStatus.set_text("set bottom left or right known lat / lon on image")
 		elif self.title == "ratio":
 			self.gui.makeDetailWindow(crosObj=self, values="xy")
 			if self.no == 0:
@@ -1237,8 +1258,9 @@ class KapImg:
 
 	def chkFileType(self,path):
 		tr = ""
+		imgTr = None
 		try:
-			GdkPixbuf.Pixbuf.new_from_file(path)
+			imgTr = GdkPixbuf.Pixbuf.new_from_file(path)
 			tr = "img"
 		except:
 			a = 0
@@ -1248,7 +1270,7 @@ class KapImg:
 			if t[-1] == "kap":
 				tr = "kap"
 
-		return tr
+		return [tr,imgTr]
 
 
 	def chkIfImgkapIsPressent(self):
