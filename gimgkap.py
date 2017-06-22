@@ -80,6 +80,7 @@ class GImgkapGui:
 		return self.builder.get_object(objectName)
 
 	def moveCross(self,obj, x,y):
+		print "moveCross <-"
 		self.layoutIMain.move(obj,x-16, y-16)
 		#print x,y
 
@@ -161,6 +162,23 @@ class GImgkapGui:
 		self.fZoom.set_visible(True)
 		print "2	x,y",c.x,c.y,"lat,lon",c.lat,c.lon
 
+
+	def makeMessageBox(self,typeOfMessage="info", text=""):
+		if typeOfMessage == "info" or typeOfMessage == "":
+			tom = Gtk.MessageType.INFO
+		elif typeOfMessage == "error":
+			tom = Gtk.MessageType.ERROR
+		else:
+			tom = typeOfMessage
+
+		gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
+				tom, Gtk.ButtonsType.OK, 
+				text)
+		gmsg.show_all()
+		res = gmsg.run()
+		gmsg.destroy()
+		return res
+		
 
 	def run(self):
 		Gtk.main()
@@ -394,6 +412,23 @@ class Events:
 
 	def ev_btSaveAs(self,obj):
 		print "ev_btSaveAs"
+
+		dataErr = []
+		if len(self.gui.cc.cross) <> 2:
+			dataErr.append("It is not a mode for makeing a save as operation")
+
+		cs = self.gui.cc.cross
+		if cs[0].x == None or cs[0].y == None or cs[0].lat == None or cs[0].lon == None:
+			dataErr.append("top left or right corrner don't have all data")
+		if cs[0].x == None or cs[0].y == None or cs[0].lat == None or cs[0].lon == None:
+			dataErr.append("bottom left or right corrner don't have all data")
+		
+		if len(dataErr) > 0:
+			self.gui.makeMessageBox("error", "Can't save: %s"%(", ".join(dataErr)) )
+			return 0
+
+
+		
 		dialog = Gtk.FileChooserDialog("Please choose a image file or kap file", self.gui.window,
 			Gtk.FileChooserAction.SAVE,
 			(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
@@ -1129,16 +1164,18 @@ class KapImg:
 
 
 		if r == 0:
-			gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
-				Gtk.MessageType.INFO, Gtk.ButtonsType.OK, 
-				"File is ready in \n'" + filePath + "'")
+			gui.makeMessageBox("info","File is ready in \n'" + filePath + "'")
+			#gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
+			#	Gtk.MessageType.INFO, Gtk.ButtonsType.OK, 
+			#	"File is ready in \n'" + filePath + "'")
 		else:
-			gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
-				Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, 
-				"Something weant wrong :( \n%s"%msg)
-		gmsg.show_all()
-		gmsg.run()
-		gmsg.destroy()
+			gui.makeMessageBox("error","Something weant wrong :( \n%s"%msg)
+			#gmsg = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL| Gtk.DialogFlags.DESTROY_WITH_PARENT, 
+			#	Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, 
+			#	"Something weant wrong :( \n%s"%msg)
+		#gmsg.show_all()
+		#gmsg.run()
+		#gmsg.destroy()
 		print "DONE"
 
 	def getValueFromError(self, res,val):
