@@ -667,10 +667,8 @@ class MyImageProcess:
 			"new size",w,h
 		img = self.id.resize( ( w, h ), Image.BICUBIC)
 		img.save("/tmp/gimgkap_DPI.png")
-		gui.cc.destroy()			
-
+		gui.cc.destroy()
 		gui.ev.loadFile("/tmp/gimgkap_DPI.png", False)
-
 		l = gui.bf.getLast()
 		l.cc = [
 			[ int(float(l.cc[0][0])*float(scale)), int(float(l.cc[0][1])*float(scale)), l.cc[0][2], l.cc[0][3]  ],
@@ -718,15 +716,64 @@ class MyImageProcess:
 		print "w,h",width,height
 
 		coeffs = self.find_coeffs(
-			[(0, 0), (width, 0), (width, height), (0, height)],
-			[(tl[0], tl[1]), (tr[0], tr[1]), (br[0],br[1]), (bl[0],bl[1])])
+			[(0, 0),		 (width, 0), 		(width, height), 	(0, height)],
+			[(tl[0], tl[1]), (tr[0], tr[1]), 	(br[0],br[1]), 		(bl[0],bl[1])])
 
 		img = img.transform((width, height), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
 
 		gui.cc.destroy()
 
 		img.save("/tmp/gimgkap_transform.png")		
-		gui.ev.loadFile("/tmp/gimgkap_transform.png")
+
+
+		l = gui.bf.getLast()
+		ntl = [0,0, 			l.cc[0][2], l.cc[0][3]  ]
+		nbr = [br[0],br[1], 	l.cc[1][2], l.cc[1][3]  ]
+		try:
+			if l.cc[0][0] == 0 and l.cc[0][1] == 0:
+				print "top left corrnet is convertable ..."
+				nx, ny = tl[0], tl[1]
+				ow, oh = l.cc[1][0], l.cc[1][1]
+				olatn, olonn = ( l.cc[1][2]-l.cc[0][2] ), ( l.cc[1][3]-l.cc[0][3] )
+				latOff, lonOff = l.cc[0][2], l.cc[0][3]
+				latToY = float(olatn)/float(oh)
+				lonToX = float(olonn)/float(ow)
+				nlat = latOff+(ny*latToY)
+				nlon = lonOff+(nx*lonToX)
+
+				print "TOP LEFT old lat,lon", latOff,lonOff, \
+					"olat,olonn", olatn, olonn, "new x,y",nx,ny, \
+					"new lat,lon",nlat,nlon
+
+				ntl[2] = nlat
+				ntl[3] = nlon
+
+			if l.cc[1][0] == l.imgSize[0] and l.cc[1][1] == l.imgSize[1]:
+				print "bottom right corrnet is convertable ..."
+				nx, ny = br[0],br[1]
+				ow, oh = l.cc[1][0], l.cc[1][1]
+				olatn, olonn = ( l.cc[1][2]-l.cc[0][2] ), ( l.cc[1][3]-l.cc[0][3] )
+				latOff, lonOff = l.cc[0][2], l.cc[0][3]
+				latToY = float(olatn)/float(oh)
+				lonToX = float(olonn)/float(ow)
+				nlat = latOff+(ny*latToY)
+				nlon = lonOff+(nx*lonToX)
+
+				print "BOTTOM RIGHT old lat,lon", latOff,lonOff, \
+					"olat,olonn", olatn, olonn, "new x,y",nx,ny, \
+					"new lat,lon",nlat,nlon
+
+				nbr[2] = nlat
+				nbr[3] = nlon
+
+
+			l.cc = [ntl,nbr]
+		except:
+			print "something whent wrong on conversion new lat,lon"
+		
+		gui.ev.loadFile("/tmp/gimgkap_transform.png", False)
+		gui.cc = CrossContainer(gui)		
+		gui.cc.makeCross(gui.layoutIMain, len(l.cc), title=l.title, points=l.cc)
 
 		return "OK"
 	# PERSPECTIVE
