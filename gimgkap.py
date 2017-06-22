@@ -546,10 +546,6 @@ class BackForward:
 		self.gui.ev.loadFile(l.file,makeNewCross=False)
 		self.gui.cc = CrossContainer(gui)		
 		self.gui.cc.makeCross(self.gui.layoutIMain, len(l.cc), title=l.title, points=l.cc)
-	
-
-
-
 
 class MyImageProcess:
 	def __init__(self):
@@ -573,6 +569,16 @@ class MyImageProcess:
 	def startDPI(self, gui):
 		if gui.cc <> None:
 			gui.cc.destroy()
+
+		self.linePb = GdkPixbuf.Pixbuf.new_from_file("./line.png")
+		self.dpiLine0 = Gtk.Image()
+		self.dpiLine0.set_from_pixbuf(self.linePb)
+		self.dpiLine1 = Gtk.Image()
+		self.dpiLine1.set_from_pixbuf(self.linePb.flip(False))
+		gui.layoutIMain.add(self.dpiLine0)
+		self.dpiLine0.hide()
+		gui.layoutIMain.add(self.dpiLine1)
+		self.dpiLine1.hide()
 
 		self.dpiRes = 0
 		cc = CrossContainer(gui)
@@ -604,52 +610,82 @@ class MyImageProcess:
 	def findH(self,level, x,y,up=True,down=True):
 		ym = 100
 		tr = 0
+		ytop = y
+		ybot = y
 
 		if up:
 			for i in range(1,ym,1):
 				if self.grayPix(x,y-i):
 					tr+=1
+					ytop = y-1
 				else:
 					if level > 0:
-						r = self.findH(level-1, x+1, y-(i-1), down=False)
-						l = self.findH(level-1, x-1, y-(i-1), down=False)
+						r,rytop,rybot = self.findH(level-1, x+1, y-(i-1), down=False)
+						l,lytop,lybot = self.findH(level-1, x-1, y-(i-1), down=False)
 						if r >= l:
 							tr+=r
 						else:
 							tr+=l
+
+						if rytop < ytop :
+							ytop = rytop
+						elif lytop < ytop:
+							ytop = lytop
+						if rybot > ybot:
+							ybot = rybot
+						elif lybot > ybot:
+							ybot = lybot
 					break
 
 		if down:
 			for i in range(1,ym,1):
 				if self.grayPix(x,y+i):
 					tr+=1
+					ybot = y+i
 				else:
 					if level > 0:
-						r = self.findH(level-1, x+1, y+(i-1), up=False)
-						l = self.findH(level-1, x-1, y+(i-1), up=False)
+						r,rytop,rybot = self.findH(level-1, x+1, y+(i-1), up=False)
+						l,lytop,lybot = self.findH(level-1, x-1, y+(i-1), up=False)
 						if r >= l:
 							tr+= r
 						else:
 							tr+= l
 
+						if rytop < ytop :
+							ytop = rytop
+						elif lytop < ytop:
+							ytop = lytop
+						if rybot > ybot:
+							ybot = rybot
+						elif lybot > ybot:
+							ybot = lybot
+
 					break
 
 
-		return tr
+		return [tr, ytop, ybot]
 
 	def detectDPI(self,gui):
 		c = self.cc.cross[0]
 		print "detectDPI cross on x,y",c.x,c.y
 		res = 0
 		if self.grayPix( c.x, c.y ):
-			res = self.findH( 10, c.x, c.y )
+			res,ytop,ybot = self.findH( 10, c.x, c.y )
 		if res > 0:
 			gui.lStatus.set_text(
 				"found object height %s px"%res
 				)
 			self.dpiRes = res
+
+			gui.layoutIMain.move(self.dpiLine0, c.x-32, ytop-48)
+			self.dpiLine0.show()
+			gui.layoutIMain.move(self.dpiLine1, c.x-32, ybot)
+			self.dpiLine1.show()
+
 		else:
 			gui.lStatus.set_text("no object found ...")
+			self.dpiLine0.hide()
+			self.dpiLine1.hide()
 
 
 
@@ -668,6 +704,8 @@ class MyImageProcess:
 		img = self.id.resize( ( w, h ), Image.BICUBIC)
 		img.save("/tmp/gimgkap_DPI.png")
 		gui.cc.destroy()
+		self.dpiLine0.hide()
+		self.dpiLine1.hide()
 		gui.ev.loadFile("/tmp/gimgkap_DPI.png", False)
 		l = gui.bf.getLast()
 		l.cc = [
