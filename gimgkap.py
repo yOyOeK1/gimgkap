@@ -386,9 +386,9 @@ class Events:
 
 	def ev_bt(self,obj):
 		#self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/5-02.kap")
-		#self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/8-54.kap")
+		self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/8-54.kap")
 		#qself.loadFile("/home/yoyo/Apps/gimgkap/testFiles/IMG_20170612_071755712_mini.jpg")
-		self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/IMG_20170612_071755712_done_mini.jpg")
+		#self.loadFile("/home/yoyo/Apps/gimgkap/testFiles/IMG_20170612_071755712_done_mini.jpg")
 
 	def ev_fcbt(self,obj):
 		print "ev_fcbt"
@@ -510,9 +510,10 @@ class Events:
 
 
 class Step:
-	def __init__(self, title, file,cc):
+	def __init__(self, title, file, imgSize, cc):
 		self.title = title
 		self.file = file
+		self.imgSize = imgSize
 		self.cc = cc
 
 class BackForward:
@@ -523,8 +524,8 @@ class BackForward:
 	def destroy(self):
 		self.steps = []
 
-	def append(self, title, file,cc):
-		s = Step(title, file, cc)
+	def append(self, title, file, imgSize, cc):
+		s = Step(title, file, imgSize, cc)
 		self.steps.append(s)
 
 	def storeStatus(self):
@@ -532,11 +533,15 @@ class BackForward:
 		self.append(
 			title,
 			gui.ki.tmpImgFile,
+			[ self.gui.ev.pbOrgW, self.gui.ev.pbOrgH ],
 			cc
 			)
 
+	def getLast(self):
+		return self.steps[len(self.steps)-1]
+
 	def resumeLast(self):
-		l = self.steps[len(self.steps)-1]
+		l = self.getLast()
 		self.gui.cc.destroy()
 		self.gui.ev.loadFile(l.file,makeNewCross=False)
 		self.gui.cc = CrossContainer(gui)		
@@ -655,18 +660,25 @@ class MyImageProcess:
 
 		charHeight = 12
 		scale = float(charHeight) / float(self.dpiRes)
-
 		imgSize = self.id.size
-		w = int( float(imgSize[0])*scale)
-		h = int( float(imgSize[1])*scale)
+		w = int( float(imgSize[0]) * scale )
+		h = int( float(imgSize[1]) * scale )
 		print "org img size",imgSize[0],imgSize[1],"res is at",self.dpiRes, \
 			"new size",w,h
-		img = self.id.resize( (int(w),int(h)),Image.BICUBIC)
+		img = self.id.resize( ( w, h ), Image.BICUBIC)
+		img.save("/tmp/gimgkap_DPI.png")
+		gui.cc.destroy()			
 
-		gui.cc.destroy()
+		gui.ev.loadFile("/tmp/gimgkap_DPI.png", False)
 
-		img.save("/tmp/gimgkap_DPI.png")		
-		gui.ev.loadFile("/tmp/gimgkap_DPI.png")
+		l = gui.bf.getLast()
+		l.cc = [
+			[ int(float(l.cc[0][0])*float(scale)), int(float(l.cc[0][1])*float(scale)), l.cc[0][2], l.cc[0][3]  ],
+			[ int(float(l.cc[1][0])*float(scale)), int(float(l.cc[1][1])*float(scale)), l.cc[1][2], l.cc[1][3]  ]
+			]
+		gui.cc = CrossContainer(gui)		
+		gui.cc.makeCross(gui.layoutIMain, len(l.cc), title=l.title, points=l.cc)
+	
 
 		return "OK"
 	# DPI
@@ -675,8 +687,10 @@ class MyImageProcess:
 		if gui.cc <> None:
 			gui.cc.destroy()
 
+		w = gui.ki.pbOrgW-50
+		h = gui.ki.pbOrgH-50
 		cc = CrossContainer(gui)
-		cc.makeCross( gui.layoutIMain, 4, title="perspective", points=[(50,50),(100,50),(100,100),(50,100)] )
+		cc.makeCross( gui.layoutIMain, 4, title="perspective", points=[(50,50),(w,50),(w,h),(50,h)] )
 		gui.cc = cc
 		self.cc = cc
 		gui.lStatus.set_text("Perspective correction, set corners of image to correct...")
@@ -828,7 +842,7 @@ class MyImageProcess:
 
 	def image_to_pixbuf(self, image):
 		fd = StringIO.StringIO()
-		image.save(fd, "ppm")
+		image.save(fd,"ppm")
 		contents = fd.getvalue()
 		fd.close()
 		loader = GdkPixbuf.PixbufLoader()
