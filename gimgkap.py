@@ -117,8 +117,9 @@ class GImgkapGui:
 
 		self.lX.set_text("x: %s"% int(c.x))
 		self.lY.set_text("y: %s"% int(c.y))
-		self.eLat.set_text("%s"%c.lat)
-		self.eLon.set_text("%s"%c.lon)
+		
+		self.eLat.set_text("%s"% c.lat if c.lat <> None else "" )
+		self.eLon.set_text("%s"% c.lon if c.lon <> None else "" )
 		
 		zx = c.x*self.ev.zoom - 150*0.5
 		zxOff = 0
@@ -192,6 +193,7 @@ class Events:
 		self.ki = gui.ki
 		self.iLT_drag = False
 		self.iRB_drag = False
+		self.arrowMoveCross = False
 		
 	def ev_window_destroy(self,obj):
 		print("bey!!!")
@@ -217,6 +219,13 @@ class Events:
 		#print "ev_win_scroll"
 		a = 0
 
+	def makeMoveCrossByArrow(self, x, y):
+		if self.gui.ev.arrowMoveCross and \
+			not self.gui.eLat.is_focus() and \
+			not self.gui.eLon.is_focus() and \
+			self.gui.layoutZoom.is_visible():
+			self.gui.eventOnCross.moveCrossBy(x,y)
+
 	def ev_win_press(self,obj,ev):
 		print "ev_win_press"
 		print "key %s" %ev.keyval
@@ -228,6 +237,15 @@ class Events:
 		if ev.keyval == 108:
 			print "load"
 			self.ev_bt(obj)
+			
+		if ev.keyval == 65362: # up
+			self.makeMoveCrossByArrow(0, -1)
+		elif ev.keyval == 65363: #right
+			self.makeMoveCrossByArrow(1, 0)
+		elif ev.keyval == 65364: #bottom
+			self.makeMoveCrossByArrow(0, 1)
+		elif ev.keyval == 65361: #left
+			self.makeMoveCrossByArrow(-1, 0)
 
 	"""
 	def ev_layIMai_press(self,obj,ev):
@@ -329,6 +347,7 @@ class Events:
 	def ev_btOk(self,obj):
 		print "ev_btOk"
 		g = self.gui
+		self.arrowMoveCross = False
 		g.fZoom.set_visible(False)
 
 
@@ -1115,6 +1134,7 @@ class Cross:
 
 	def ev_press(self,obj,ev):
 		print "ev_press title[%s] no[%s]" % (self.title, self.no)
+		self.gui.ev.arrowMoveCross = True
 		self.updateInProgress = True
 		self.gui.eventOnCross = self
 		self.drag = True
